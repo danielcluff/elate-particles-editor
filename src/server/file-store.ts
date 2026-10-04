@@ -1,6 +1,6 @@
 import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { createEffect, normalizeEffect, type EffectDoc } from "elate-particles";
+import { createEffect, normalizeEffect, slugify, uniqueSlug, type EffectDoc } from "elate-particles";
 import type { EffectStore, EffectSummary } from "../host";
 
 // An EffectStore that keeps one `<id>.fx.json` file per effect in a
@@ -36,7 +36,7 @@ export function createFileStore(dir: string): FileStore {
       for (const f of (await readdir(root)).filter((f) => f.endsWith(".fx.json"))) {
         try {
           const doc = JSON.parse(await readFile(join(root, f), "utf8")) as EffectDoc;
-          out.push({ id: doc.id, name: doc.name, createdAt: doc.createdAt, updatedAt: doc.updatedAt, thumbnail: doc.thumbnail, emitterCount: doc.emitters?.length ?? 0 });
+          out.push({ id: f.slice(0, -".fx.json".length), name: doc.name, createdAt: doc.createdAt, updatedAt: doc.updatedAt, thumbnail: doc.thumbnail, emitterCount: doc.emitters?.length ?? 0 });
         } catch {
           // skip unreadable files
         }
@@ -45,15 +45,18 @@ export function createFileStore(dir: string): FileStore {
     },
     async get(id) {
       try {
-        return normalizeEffect(JSON.parse(await readFile(file(id), "utf8")));
+        return normalizeEffect(JSON.parse(await readFile(file(id), "utf8")), { id });
       } catch {
         return null;
       }
     },
     save,
     async create(name, from) {
-      // a fresh id even when copying, so "new from example" never overwrites
-      const base = from?.emitters ? normalizeEffect({ ...from, id: undefined }) : createEffect(name || "Untitled");
+      // the slug comes from the name and is unique among the files, so "new from example" never overwrites
+      await ensure();
+      const taken = (await readdir(root)).filter((f) => f.endsWith(".fx.json")).map((f) => f.slice(0, -".fx.json".length));
+      const id = uniqueSlug(slugify(name || from?.name || "untitled", "effect"), taken);
+      const base = from?.emitters ? normalizeEffect({ ...from, id: undefined }, { id }) : createEffect(name || "Untitled", { id });
       const now = Date.now();
       const doc: EffectDoc = { ...base, name: name || base.name, createdAt: now, updatedAt: now };
       await save(doc);

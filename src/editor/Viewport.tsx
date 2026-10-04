@@ -38,6 +38,7 @@ export function Viewport(props: { freeArea: () => HTMLElement | undefined }) {
     // coming back from the shader editor: pick up edited shaders
     const onFocus = () => void shaders.checkForEdits();
     window.addEventListener("focus", onFocus);
+    const unsubscribe = shaders.subscribe(onFocus);
     if (import.meta.env?.DEV) (window as unknown as { __elatePreview: unknown }).__elatePreview = preview;
     preview.ready
       .then(() => {
@@ -65,6 +66,7 @@ export function Viewport(props: { freeArea: () => HTMLElement | undefined }) {
     return () => {
       clearTimeout(applyTimer);
       window.removeEventListener("focus", onFocus);
+      unsubscribe();
       shaders.setOnChange(() => {});
       ro.disconnect();
       pb.detach();

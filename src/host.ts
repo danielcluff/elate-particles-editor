@@ -52,6 +52,13 @@ export interface ShaderSource {
   load(id: string): Promise<ParticleShader | undefined>;
   /** Where "Edit in shader graph" goes (opened in a new tab). Omit to hide the button. */
   editUrl?(id: string): string;
+  /** Open the shader in the host instead (e.g. switch to its tab); takes precedence over `editUrl`. */
+  open?(id: string): void;
+  /**
+   * Tell the editor when shaders change (e.g. an agent edited one) so it reloads them.
+   * Without it, edits are picked up when the window regains focus.
+   */
+  subscribe?(onChange: () => void): () => void;
   /** "New shader" in the material picker: create one and return its id. Omit to hide it. */
   create?(name: string): Promise<string>;
 }

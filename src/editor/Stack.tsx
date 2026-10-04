@@ -29,6 +29,9 @@ const STAGE_INFO: Record<Stage, { title: string; hint: string; axis: string }> =
 };
 
 /** The selected emitter's module stack (right panel). */
+
+/** Module slugs are unique within their emitter, so UI state is keyed by both. */
+const moduleKey = (emitterId: string, moduleId: string) => `${emitterId}:m:${moduleId}`;
 export function StackPanel() {
   const ed = useContext(EditorContext);
   return (
@@ -220,7 +223,7 @@ function StageSection(props: { emitter: EmitterDoc; stage: Stage }) {
               onPick={(def) => {
                 setPicker(null);
                 const r = ed.run<{ moduleId: string }>({ op: "addModule", emitterId: props.emitter.id, type: def.type });
-                if (r) ed.toggleCollapsed(r.moduleId, false);
+                if (r) ed.toggleCollapsed(moduleKey(props.emitter.id, r.moduleId), false);
               }}
             />
           </Popover>
@@ -271,8 +274,8 @@ function ModuleCard(props: { emitter: EmitterDoc; stage: Stage; module: ModuleIn
   const m = () => props.module;
   const def = createMemo(() => getModuleDef(props.module.type));
   const enabled = () => m().enabled !== false;
-  const collapsed = () => !!ed.state.collapsed[m().id];
-  const issues = createMemo(() => ed.issues().filter((i) => i.moduleId === props.module.id));
+  const collapsed = () => !!ed.state.collapsed[moduleKey(props.emitter.id, m().id)];
+  const issues = createMemo(() => ed.issues().filter((i) => i.moduleId === props.module.id && i.emitterId === props.emitter.id));
   const visible = createMemo(() => (def()?.params ?? []).filter((p) => fieldVisible(p, (k) => m().params[k])));
   const ids = () => ({ emitterId: props.emitter.id, moduleId: m().id });
   const move = (index: number) => ed.run({ op: "moveModule", ...ids(), index });
@@ -341,7 +344,7 @@ function ModuleCard(props: { emitter: EmitterDoc; stage: Stage; module: ModuleIn
             />
           }
         >
-          <button type="button" class="flex min-w-0 flex-1 items-center gap-1.5 text-left" onClick={() => ed.toggleCollapsed(m().id)} onDblClick={() => setRenaming(true)}>
+          <button type="button" class="flex min-w-0 flex-1 items-center gap-1.5 text-left" onClick={() => ed.toggleCollapsed(moduleKey(props.emitter.id, m().id))} onDblClick={() => setRenaming(true)}>
             <span class="truncate text-xs font-medium">{m().label ?? def()?.label ?? m().type}</span>
             <span class="min-w-0 flex-1 truncate font-mono text-[10px] text-muted-foreground">{moduleSummary(m())}</span>
             <Icon svg={collapsed() ? ChevronRight : ChevronDown} class="size-3 shrink-0 text-muted-foreground/60" />
@@ -545,10 +548,7 @@ function MaterialField(props: { renderer: SpriteRendererDoc; onChange: (m: Graph
     ...shaders.state.list.map((s) => ({ value: s.id, label: s.name })),
     ...(id() && !summary() ? [{ value: id(), label: `${id()} (not found)` }] : []),
   ];
-  const edit = (shaderId: string) => {
-    const url = shaders.editUrl(shaderId);
-    if (url) window.open(url, "_blank");
-  };
+  const edit = (shaderId: string) => shaders.edit(shaderId);
   return (
     <>
       <FieldRow label="Material" title="Built-in look, or a particle shader graph (tsl-graph) that sets each particle's colour and opacity">
@@ -587,8 +587,8 @@ function MaterialField(props: { renderer: SpriteRendererDoc; onChange: (m: Graph
               {(msg) => <div class="truncate text-[10px] text-red-400" title={msg()}>{msg()}</div>}
             </Show>
           </div>
-          <Show when={shaders.editUrl(id())}>
-            <Tooltip content="Edit in shader graph (new tab); changes apply when you come back" side="left">
+          <Show when={shaders.canEdit(id())}>
+            <Tooltip content="Edit in shader graph; changes apply when you come back" side="left">
               <button
                 type="button"
                 class="flex h-7 shrink-0 items-center gap-1 rounded-md border px-2 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"

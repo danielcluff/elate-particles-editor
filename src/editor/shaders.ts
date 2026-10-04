@@ -6,7 +6,8 @@ import type { EffectHost, ShaderSummary } from "../host";
 // Shader graphs used by sprite materials (`material: { kind: "graph", shaderId }`).
 // The host's ShaderSource lists and builds them; this cache feeds the preview's
 // ParticleWorld and reloads a shader when it was edited (checked on window
-// focus, i.e. when coming back from the shader editor).
+// focus, i.e. when coming back from the shader editor, and whenever the host
+// reports a change).
 
 /** Shader ids an effect's sprite renderers reference. */
 export function shaderIds(doc: EffectDoc): string[] {
@@ -78,7 +79,16 @@ export function createShaders(host: EffectHost) {
     ensure,
     refreshList,
     checkForEdits,
+    /** The host's change notifications (ShaderSource.subscribe), if it sends any. */
+    subscribe: (fn: () => void): (() => void) => source?.subscribe?.(fn) ?? (() => {}),
     editUrl: (id: string) => source?.editUrl?.(id),
+    /** "Edit" opens the shader: in the host when it can, else in a new tab at editUrl. */
+    canEdit: (id: string) => !!source?.open || !!source?.editUrl?.(id),
+    edit(id: string) {
+      if (source?.open) return source.open(id);
+      const url = source?.editUrl?.(id);
+      if (url) window.open(url, "_blank");
+    },
     canCreate: !!source?.create,
     create: (name: string) => source!.create!(name),
     setOnChange(fn: (id: string) => void) {
