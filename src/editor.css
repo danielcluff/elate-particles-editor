@@ -1,0 +1,135 @@
+/* Editor styles without Tailwind itself, for hosts that run their own
+   Tailwind v4 build. Import after "tailwindcss" and give the dark variant the
+   editor's class too:
+     @import "tailwindcss";
+     @import "elate-particles-editor/editor.css";
+     @custom-variant dark (&:where(.dark, .dark *, .elate-dark, .elate-dark *));
+   Colour tokens and base styles are scoped to .elate-root (the editor root
+   and its portals); the dark theme is .elate-dark on the same element. The
+   tokens are tsl-graph's, so both editors look like one product. */
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
+
+@source "./";
+
+@theme inline {
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+.elate-root {
+  --radius: 0.625rem;
+  --background: #eee;
+  --foreground: #0a0a0a;
+  --card: #fff;
+  --card-foreground: #0a0a0a;
+  --popover: #fff;
+  --popover-foreground: #0a0a0a;
+  --primary: #171717;
+  --primary-foreground: #fafafa;
+  --secondary: #f5f5f5;
+  --secondary-foreground: #171717;
+  --muted: #f5f5f5;
+  --muted-foreground: #737373;
+  --accent: #f5f5f5;
+  --accent-foreground: #171717;
+  --destructive: #e40014;
+  --border: #e5e5e5;
+  --input: #e5e5e5;
+  --ring: #a1a1a1;
+  --sidebar: #fafafa;
+  --curve-grid: rgba(0, 0, 0, 0.08);
+  --checker: #d4d4d4;
+}
+
+.elate-root.elate-dark {
+  color-scheme: dark;
+  --background: #03060d;
+  --foreground: #fafafa;
+  --card: #0b0f18;
+  --card-foreground: #fafafa;
+  --popover: #0b0f18;
+  --popover-foreground: #fafafa;
+  --primary: #e5e5e5;
+  --primary-foreground: #171717;
+  --secondary: #1d222b;
+  --secondary-foreground: #fafafa;
+  --muted: #1d222b;
+  --muted-foreground: #a1a1a1;
+  --accent: #1d222b;
+  --accent-foreground: #fafafa;
+  --destructive: #ff6568;
+  --border: #ffffff1a;
+  --input: #ffffff26;
+  --ring: #737373;
+  --sidebar: #03060d;
+  --curve-grid: rgba(255, 255, 255, 0.07);
+  --checker: #3a3f48;
+}
+
+@layer base {
+  .elate-root,
+  .elate-root * {
+    border-color: var(--border);
+  }
+  .elate-root {
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  .elate-root button {
+    cursor: pointer;
+  }
+  .elate-root button:disabled {
+    cursor: default;
+  }
+}
+
+/* ---- stage colours (module cards and section headers) ---------------------- */
+.stage-spawn { --stage: var(--color-amber-400); }
+.stage-init { --stage: var(--color-emerald-400); }
+.stage-update { --stage: var(--color-sky-400); }
+.stage-render { --stage: var(--color-fuchsia-400); }
+.stage-renderer { --stage: var(--color-violet-400); }
+.stage-emitter { --stage: var(--color-slate-400); }
+
+/* transparency checkerboard behind gradients and colour swatches */
+.checker {
+  background-color: var(--background);
+  background-image:
+    linear-gradient(45deg, var(--checker) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--checker) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--checker) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--checker) 75%);
+  background-size: 8px 8px;
+  background-position: 0 0, 0 4px, 4px -4px, -4px 0;
+}
+
+/* scrollbars */
+.thin-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(127, 127, 127, 0.3) transparent;
+}

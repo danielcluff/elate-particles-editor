@@ -1,0 +1,6 @@
+/* Complete editor stylesheet (Tailwind included), for hosts without their own
+   Tailwind build. Hosts with one import "elate-particles-editor/editor.css" instead. */
+@import "tailwindcss";
+@import "./editor.css";
+
+@custom-variant dark (&:where(.elate-dark, .elate-dark *));

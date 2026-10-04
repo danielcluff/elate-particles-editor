@@ -1,0 +1,3 @@
+[submodule "packages/elate-particles"]
+	path = packages/elate-particles
+	url = https://github.com/danielcluff/elate-particles.git

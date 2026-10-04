@@ -1,0 +1,8 @@
+packages:
+  - "packages/*"
+allowBuilds:
+  esbuild: true
+# one three for the editor and the runtime submodule (its own devDependency pins an older one)
+overrides:
+  three: ^0.186.1
+  "@types/three": ^0.186.0
