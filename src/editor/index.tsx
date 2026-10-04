@@ -5,7 +5,7 @@ import { EffectEditor, type EffectEditorProps } from "./EffectEditor";
 
 export { EffectEditor, type EffectEditorProps } from "./EffectEditor";
 export { EffectPreview, type FrameInfo } from "./preview";
-export type { EffectHost, EffectSource, EffectSummary, McpMode, ProviderId } from "../host";
+export type { EffectHost, EffectSource, EffectSummary, McpMode, ProviderId, ShaderSource, ShaderSummary } from "../host";
 export type { Theme } from "../ui/theme";
 
 export interface MountedEffectEditor {

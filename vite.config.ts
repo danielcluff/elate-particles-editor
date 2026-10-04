@@ -1,4 +1,5 @@
-import { defineConfig } from "vite";
+import { resolve } from "node:path";
+import { defineConfig, searchForWorkspaceRoot } from "vite";
 import solid from "@solidjs/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
 
@@ -8,5 +9,7 @@ export default defineConfig({
   plugins: [solid(), tailwindcss()],
   // elate-particles is a workspace package (packages/elate-particles): one three and one Solid for both
   resolve: { dedupe: ["solid-js", "@solidjs/web", "three"] },
+  // the playground links tsl-graph (../tsl-graph) for particle shaders
+  server: { fs: { allow: [searchForWorkspaceRoot(process.cwd()), resolve(import.meta.dirname, "..", "tsl-graph")] } },
   build: { target: "esnext", chunkSizeWarningLimit: 4000, outDir: "../dist", emptyOutDir: true },
 });

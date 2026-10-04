@@ -434,7 +434,14 @@ export function Select(props: {
         props.class,
       ]}
     >
-      <For each={props.options}>{(o) => <option value={String(o.value)}>{o.label}</option>}</For>
+      {/* `selected` too: a <select> whose options re-render would otherwise fall back to the first one */}
+      <For each={props.options}>
+        {(o) => (
+          <option value={String(o.value)} selected={String(o.value) === String(props.value)}>
+            {o.label}
+          </option>
+        )}
+      </For>
     </select>
   );
 }

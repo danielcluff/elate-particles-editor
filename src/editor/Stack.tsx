@@ -3,17 +3,20 @@ import {
   RENDERER_TYPES,
   getModuleDef,
   type EmitterDoc,
+  type GraphMaterialRef,
   type Issue,
   type ModuleInstance,
   type RendererDoc,
   type RendererType,
+  type SpriteRendererDoc,
   type Stage,
   type SubEmitterBinding,
 } from "elate-particles";
-import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, CircleAlert, Copy, Ellipsis, GripVertical, Pencil, Plus, Trash2, TriangleAlert, X } from "lucide-static";
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, CircleAlert, Copy, Ellipsis, ExternalLink, GripVertical, Pencil, Plus, Trash2, TriangleAlert, X } from "lucide-static";
 import { Checkbox, Icon, MenuItem, MenuSeparator, NumberField, Popover, Select, Switch, Tooltip, togglePopover, type PopoverAnchor } from "../ui";
 import { EMITTER_FIELDS, LOD_FIELDS, RENDERER_FIELDS, RENDERER_LABELS, fieldGetter, fieldPatch, getField } from "./fields";
 import { ModulePicker } from "./ModulePicker";
+import { ShadersContext } from "./shaders";
 import { EditorContext } from "./store";
 import { FieldRow, ParamField, fieldVisible, type FieldDef } from "./widgets/ParamField";
 import { summarizeFloat } from "./widgets/values";
@@ -411,7 +414,7 @@ function ModuleCard(props: { emitter: EmitterDoc; stage: Stage; module: ModuleIn
 function rendererSummary(r: RendererDoc): string {
   switch (r.type) {
     case "sprite":
-      return `${r.shape} · ${r.blend}${r.facing !== "camera" ? ` · ${r.facing}` : ""}`;
+      return `${r.material ? "graph" : r.shape} · ${r.blend}${r.facing !== "camera" ? ` · ${r.facing}` : ""}`;
     case "mesh":
       return `${r.mesh} · ${r.blend}`;
     case "ribbon":
@@ -460,6 +463,7 @@ function RendererSection(props: { emitter: EmitterDoc }) {
 
 function RendererCard(props: { emitter: EmitterDoc; renderer: RendererDoc; index: number }) {
   const ed = useContext(EditorContext);
+  const shaders = useContext(ShadersContext);
   const [menu, setMenu] = createSignal<PopoverAnchor | null>(null);
   const r = () => props.renderer;
   const key = () => `${props.emitter.id}:r:${r().id}`;
@@ -520,11 +524,83 @@ function RendererCard(props: { emitter: EmitterDoc; renderer: RendererDoc; index
               onChange={(t) => set({ type: t as RendererType })}
             />
           </FieldRow>
+          <Show when={r().type === "sprite" && (shaders.available || (r() as SpriteRendererDoc).material)}>
+            <MaterialField renderer={r() as SpriteRendererDoc} onChange={(material) => set({ material } as Partial<RendererDoc>)} />
+          </Show>
           <ObjectFields obj={r() as never} defs={RENDERER_FIELDS[r().type]} mergePrefix={key()} onPatch={(p, merge) => set(p as Partial<RendererDoc>, merge)} />
           <IssueList issues={issues()} />
         </div>
       </Show>
     </div>
+  );
+}
+
+/** Sprite look: built-in (colour × shape) or a shader graph from the host. */
+function MaterialField(props: { renderer: SpriteRendererDoc; onChange: (m: GraphMaterialRef | undefined) => void }) {
+  const shaders = useContext(ShadersContext);
+  const id = () => (props.renderer.material?.kind === "graph" ? props.renderer.material.shaderId : "");
+  const summary = () => shaders.state.list.find((s) => s.id === id());
+  const options = () => [
+    { value: "", label: "Built-in (colour × shape)" },
+    ...shaders.state.list.map((s) => ({ value: s.id, label: s.name })),
+    ...(id() && !summary() ? [{ value: id(), label: `${id()} (not found)` }] : []),
+  ];
+  const edit = (shaderId: string) => {
+    const url = shaders.editUrl(shaderId);
+    if (url) window.open(url, "_blank");
+  };
+  return (
+    <>
+      <FieldRow label="Material" title="Built-in look, or a particle shader graph (tsl-graph) that sets each particle's colour and opacity">
+        <div class="flex w-full items-center gap-1" onPointerDown={() => void shaders.refreshList()}>
+          <Select class="h-7 min-w-0 flex-1 text-xs" value={id()} options={options()} onChange={(v) => props.onChange(v ? { kind: "graph", shaderId: v } : undefined)} />
+          <Show when={!id() && shaders.canCreate}>
+            <Tooltip content="New particle shader" side="left">
+              <button
+                type="button"
+                aria-label="New particle shader"
+                class="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+                onClick={async () => {
+                  const shaderId = await shaders.create("Particle Shader");
+                  await shaders.refreshList();
+                  props.onChange({ kind: "graph", shaderId });
+                  edit(shaderId);
+                }}
+              >
+                <Icon svg={Plus} class="size-3.5" />
+              </button>
+            </Tooltip>
+          </Show>
+        </div>
+      </FieldRow>
+      <Show when={id()}>
+        <div class="flex items-center gap-2 rounded-md border bg-background/40 p-1.5">
+          <Show when={summary()?.thumbnail} fallback={<div class="checker h-9 w-14 shrink-0 rounded" />}>
+            {(src) => <img src={src()} alt="" class="h-9 w-14 shrink-0 rounded object-cover" />}
+          </Show>
+          <div class="min-w-0 flex-1">
+            <div class="truncate text-[11px] font-medium">{summary()?.name ?? id()}</div>
+            <Show
+              when={shaders.state.failed[id()]}
+              fallback={<div class="text-[10px] text-muted-foreground">Shader graph sets colour and opacity</div>}
+            >
+              {(msg) => <div class="truncate text-[10px] text-red-400" title={msg()}>{msg()}</div>}
+            </Show>
+          </div>
+          <Show when={shaders.editUrl(id())}>
+            <Tooltip content="Edit in shader graph (new tab); changes apply when you come back" side="left">
+              <button
+                type="button"
+                class="flex h-7 shrink-0 items-center gap-1 rounded-md border px-2 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
+                onClick={() => edit(id())}
+              >
+                <Icon svg={ExternalLink} class="size-3" /> Edit
+              </button>
+            </Tooltip>
+          </Show>
+        </div>
+      </Show>
+    </>
   );
 }
 

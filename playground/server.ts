@@ -1,10 +1,12 @@
 // Playground host: shows how a parent app embeds the effect editor. The parent
-// owns effects (here: *.fx.json files + a tiny REST API) and routing.
+// owns effects (here: *.fx.json files + a tiny REST API) and routing; the
+// effect server adds the MCP endpoint and the bridge to open editor tabs.
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { readFile, stat } from "node:fs/promises";
+import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { extname, join, resolve } from "node:path";
 import type { EffectDoc } from "elate-particles";
-import { createFileStore } from "../src/server";
+import { createProject, type ProjectDoc } from "tsl-graph";
+import { createEffectServer, createFileStore } from "../src/server";
 
 const PORT = Number(process.env.PORT ?? 5190);
 const HOST = process.env.HOST ?? "127.0.0.1";
@@ -12,6 +14,63 @@ const PROD = process.env.NODE_ENV === "production";
 const ROOT = resolve(import.meta.dirname, "..");
 
 const store = createFileStore(join(process.env.ELATE_DATA_DIR ?? join(ROOT, "data"), "effects"));
+
+// Particle shaders are tsl-graph projects of kind "particle". The playground
+// reads tsl-graph's own playground store (run `pnpm dev` in ../tsl-graph to
+// edit them); a real host would share one asset store between both tools.
+const TSL_GRAPH_DIR = resolve(process.env.TSL_GRAPH_DIR ?? join(ROOT, "..", "tsl-graph"));
+const SHADER_DIR = join(process.env.TSL_DATA_DIR ?? join(TSL_GRAPH_DIR, "data"), "projects");
+
+async function readShaders(): Promise<ProjectDoc[]> {
+  const out: ProjectDoc[] = [];
+  let files: string[] = [];
+  try {
+    files = (await readdir(SHADER_DIR)).filter((f) => f.endsWith(".json"));
+  } catch {
+    return out;
+  }
+  for (const f of files) {
+    try {
+      const doc = JSON.parse(await readFile(join(SHADER_DIR, f), "utf8")) as ProjectDoc;
+      if (doc.kind === "particle") out.push(doc);
+    } catch {
+      // skip unreadable files
+    }
+  }
+  return out.sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+async function handleShaders(req: IncomingMessage, res: ServerResponse, url: URL): Promise<boolean> {
+  const parts = url.pathname.split("/").filter(Boolean); // ["api", "shaders", id?]
+  if (parts[0] !== "api" || parts[1] !== "shaders") return false;
+  try {
+    const id = parts[2];
+    if (!id && req.method === "GET")
+      return json(res, 200, (await readShaders()).map((d) => ({ id: d.id, name: d.name, thumbnail: d.thumbnail, updatedAt: d.updatedAt }))), true;
+    if (id && req.method === "GET") {
+      const doc = (await readShaders()).find((d) => d.id === id);
+      return doc ? json(res, 200, doc) : json(res, 404, { error: "Not found" }), true;
+    }
+    if (!id && req.method === "POST") {
+      const body = ((await readBody(req)) ?? {}) as { name?: string };
+      const doc = createProject(body.name || "Particle Shader", "particle");
+      await mkdir(SHADER_DIR, { recursive: true });
+      await writeFile(join(SHADER_DIR, `${doc.id}.json`), JSON.stringify(doc));
+      return json(res, 201, { id: doc.id }), true;
+    }
+    json(res, 404, { error: "Unknown endpoint" });
+  } catch (err) {
+    json(res, 500, { error: err instanceof Error ? err.message : String(err) });
+  }
+  return true;
+}
+
+const fx = createEffectServer({
+  store,
+  shaders: { list: async () => (await readShaders()).map((d) => ({ id: d.id, name: d.name, updatedAt: d.updatedAt })) },
+  basePath: "/elate",
+  projectUrl: (id) => `http://localhost:${PORT}/#/e/${id}`,
+});
 
 async function readBody(req: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];
@@ -44,6 +103,7 @@ async function handleEffects(req: IncomingMessage, res: ServerResponse, url: URL
       const doc = (await readBody(req)) as EffectDoc;
       if (!doc || doc.id !== id) return json(res, 400, { error: "Body id mismatch" }), true;
       await store.save(doc);
+      fx.notifyProjectChanged(id);
       return json(res, 200, { ok: true }), true;
     }
     if (id && req.method === "DELETE") return await store.remove(id), json(res, 200, { ok: true }), true;
@@ -78,6 +138,7 @@ async function serveStatic(res: ServerResponse, url: URL) {
 }
 
 const server = createServer();
+fx.attach(server);
 
 let vite: import("vite").ViteDevServer | undefined;
 if (!PROD) {
@@ -87,11 +148,14 @@ if (!PROD) {
 
 server.on("request", async (req, res) => {
   const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
+  if (await fx.handle(req, res)) return;
   if (await handleEffects(req, res, url)) return;
+  if (await handleShaders(req, res, url)) return;
   if (vite) vite.middlewares(req, res);
   else await serveStatic(res, url);
 });
 
 server.listen(PORT, HOST, () => {
-  console.log(`\n  Elate Particles editor playground  →  http://localhost:${PORT}\n`);
+  console.log(`\n  Elate Particles editor playground  →  http://localhost:${PORT}`);
+  console.log(`  MCP (HTTP)                         →  http://localhost:${PORT}/elate/mcp\n`);
 });

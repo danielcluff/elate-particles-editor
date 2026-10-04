@@ -8,7 +8,7 @@ export interface Toast {
   kind: "info" | "error" | "success";
 }
 
-export type DialogName = "json" | "shortcuts" | null;
+export type DialogName = "json" | "shortcuts" | "mcp" | null;
 
 const [toasts, setToasts] = createSignal<Toast[]>([]);
 const [dialog, setDialog] = createSignal<DialogName>(null);

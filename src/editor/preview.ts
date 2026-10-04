@@ -9,7 +9,7 @@
 import * as THREE from "three/webgpu";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { EffectDoc, PreviewSettings } from "elate-particles";
-import { ParticleWorld, type ParticleEffect, type ParticleWorldStats } from "elate-particles/three";
+import { ParticleWorld, type ParticleEffect, type ParticleShader, type ParticleWorldStats } from "elate-particles/three";
 
 export const BACKGROUNDS: { label: string; value: string }[] = [
   { label: "Night", value: "#05070c" },
@@ -78,7 +78,7 @@ export class EffectPreview {
   #disposed = false;
   #lineLap = 0;
 
-  constructor(container: HTMLElement) {
+  constructor(container: HTMLElement, opts: { shaders?: (id: string) => ParticleShader | undefined } = {}) {
     this.#container = container;
     this.renderer = new THREE.WebGPURenderer({ antialias: true });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -109,7 +109,7 @@ export class EffectPreview {
     sun.position.set(5, 10, 4);
     this.scene.add(sun);
 
-    this.world = new ParticleWorld({ renderer: this.renderer, lights: { max: 8 }, silent: true });
+    this.world = new ParticleWorld({ renderer: this.renderer, lights: { max: 8 }, silent: true, shaders: opts.shaders });
     this.scene.add(this.world.object);
 
     this.#resize = new ResizeObserver(() => this.#applySize());
@@ -141,6 +141,13 @@ export class EffectPreview {
     }
     this.#doc = doc;
     this.world.register(doc);
+    this.#seekTo(this.#time);
+  }
+
+  /** A shader graph finished loading or changed: rebuild the materials that use it, keep the current time. */
+  refreshShader(id: string): void {
+    if (!this.#doc) return;
+    this.world.invalidateShader(id);
     this.#seekTo(this.#time);
   }
 
@@ -236,24 +243,35 @@ export class EffectPreview {
     this.camera.position.copy(center).addScaledVector(dir, dist);
   }
 
-  /** A JPEG of the current view (for thumbnails). */
+  /**
+   * A JPEG of the current view, cropped from the area between the panels (see
+   * setInsets) to `width` × `height`'s aspect.
+   */
   async capture(width = 480, height = 270): Promise<string> {
     await this.renderer.renderAsync(this.scene, this.camera);
     const src = this.renderer.domElement;
+    const k = src.width / Math.max(1, this.#container.clientWidth);
+    const { left, right, top, bottom } = this.#insets;
+    const free = { x: left * k, y: top * k, w: Math.max(1, src.width - (left + right) * k), h: Math.max(1, src.height - (top + bottom) * k) };
+    const aspect = width / height;
+    let sw = free.w;
+    let sh = sw / aspect;
+    if (sh > free.h) {
+      sh = free.h;
+      sw = sh * aspect;
+    }
     const out = document.createElement("canvas");
     out.width = width;
     out.height = height;
-    const ctx = out.getContext("2d")!;
-    // crop to the free area's aspect around the canvas centre
-    const aspect = width / height;
-    let sw = src.width;
-    let sh = sw / aspect;
-    if (sh > src.height) {
-      sh = src.height;
-      sw = sh * aspect;
-    }
-    ctx.drawImage(src, (src.width - sw) / 2, (src.height - sh) / 2, sw, sh, 0, 0, width, height);
-    return out.toDataURL("image/jpeg", 0.8);
+    out.getContext("2d")!.drawImage(src, free.x + (free.w - sw) / 2, free.y + (free.h - sh) / 2, sw, sh, 0, 0, width, height);
+    return out.toDataURL("image/jpeg", 0.85);
+  }
+
+  /** Live counts for agents: per emitter (CPU emitters exact, GPU emitters an upper bound). */
+  emitterStats(): { name: string; id: string; particles: number; sim: "cpu" | "gpu" }[] {
+    const sim = this.#handle?.sim;
+    if (!sim) return [];
+    return sim.emitters.map((e) => ({ name: e.template.doc.name, id: e.template.doc.id, particles: e.particleCount, sim: e.template.doc.sim === "gpu" ? "gpu" : "cpu" }));
   }
 
   dispose(): void {

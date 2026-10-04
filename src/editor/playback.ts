@@ -23,6 +23,7 @@ export function createPlayback() {
     fps: 60,
   });
   let preview: EffectPreview | null = null;
+  let applyNow: () => void = () => {};
   let lastStats = 0;
 
   const onFrame = (f: FrameInfo) => {
@@ -64,6 +65,11 @@ export function createPlayback() {
     detach() {
       preview = null;
     },
+    /** Set by the viewport: register pending document changes right away (before a capture). */
+    setApply(fn: () => void) {
+      applyNow = fn;
+    },
+    applyNow: () => applyNow(),
     play: () => preview?.play(),
     pause: () => preview?.pause(),
     toggle: () => (preview?.playing ? preview.pause() : preview?.play()),

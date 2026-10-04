@@ -1,7 +1,9 @@
 packages:
   - "packages/*"
 allowBuilds:
+  '@google/genai': false
   esbuild: true
+  protobufjs: false
 # one three for the editor and the runtime submodule (its own devDependency pins an older one)
 overrides:
   three: ^0.186.1

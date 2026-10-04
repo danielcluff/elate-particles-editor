@@ -1,6 +1,7 @@
 import { Show, createEffect, onSettled, untrack, useContext } from "solid-js";
 import { EffectPreview } from "./preview";
 import { PlaybackContext } from "./playback";
+import { ShadersContext } from "./shaders";
 import { EditorContext, previewDoc } from "./store";
 
 /** Debounce for re-registering the effect while values are being dragged. */
@@ -13,6 +14,7 @@ const APPLY_DELAY = 30;
 export function Viewport(props: { freeArea: () => HTMLElement | undefined }) {
   const ed = useContext(EditorContext);
   const pb = useContext(PlaybackContext);
+  const shaders = useContext(ShadersContext);
   let host!: HTMLDivElement;
   let preview: EffectPreview | undefined;
   let applyTimer: number | undefined;
@@ -21,14 +23,21 @@ export function Viewport(props: { freeArea: () => HTMLElement | undefined }) {
     clearTimeout(applyTimer);
     if (!preview || !pb.state.ready) return;
     try {
-      preview.setDoc(previewDoc(ed.plainDoc(), ed.state.solo));
+      const doc = ed.plainDoc();
+      shaders.ensure(doc);
+      preview.setDoc(previewDoc(doc, ed.state.solo));
     } catch (err) {
       console.error(err);
     }
   };
 
   onSettled(() => {
-    preview = new EffectPreview(host);
+    pb.setApply(apply);
+    preview = new EffectPreview(host, { shaders: shaders.resolve });
+    shaders.setOnChange((id) => preview?.refreshShader(id));
+    // coming back from the shader editor: pick up edited shaders
+    const onFocus = () => void shaders.checkForEdits();
+    window.addEventListener("focus", onFocus);
     if (import.meta.env?.DEV) (window as unknown as { __elatePreview: unknown }).__elatePreview = preview;
     preview.ready
       .then(() => {
@@ -55,6 +64,8 @@ export function Viewport(props: { freeArea: () => HTMLElement | undefined }) {
 
     return () => {
       clearTimeout(applyTimer);
+      window.removeEventListener("focus", onFocus);
+      shaders.setOnChange(() => {});
       ro.disconnect();
       pb.detach();
       preview?.dispose();

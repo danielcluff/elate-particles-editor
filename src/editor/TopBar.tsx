@@ -8,17 +8,20 @@ import {
   Keyboard,
   Link2,
   Pause,
+  Plug,
   Play,
   Redo2,
   Repeat,
   Braces,
   RotateCcw,
   Scan,
+  Sparkles,
   StepForward,
   Undo2,
 } from "lucide-static";
 import { Icon, MenuItem, MenuLabel, MenuSeparator, Popover, Tooltip, togglePopover, type PopoverAnchor } from "../ui";
-import { HostContext } from "./host";
+import { ChatContext } from "./ai-chat";
+import { HostContext, effectMcpUrl } from "./host";
 import { PlaybackContext } from "./playback";
 import { BACKGROUNDS, DEFAULT_PREVIEW } from "./preview";
 import { EditorContext } from "./store";
@@ -66,19 +69,20 @@ export function TopBar(props: { onSaveJson: () => void; onLoadJson: () => void }
   const ed = useContext(EditorContext);
   const pb = useContext(PlaybackContext);
   const host = useContext(HostContext);
+  const chat = useContext(ChatContext);
   const [menu, setMenu] = createSignal<PopoverAnchor | null>(null);
   const [bgMenu, setBgMenu] = createSignal<PopoverAnchor | null>(null);
   const settings = () => ({ ...DEFAULT_PREVIEW, ...ed.state.doc.preview });
 
   return (
-    <div class="@container flex h-10 items-center gap-1.5 rounded-xl border bg-card px-3 shadow-lg" data-ui>
+    <div class="@container flex h-10 items-center gap-1 rounded-xl border bg-card px-3 shadow-lg" data-ui>
       <button type="button" aria-label="Exit editor" class="shrink-0" disabled={!host.exit} onClick={() => host.exit?.()}>
         <Logo />
       </button>
       <Divider />
       <input
         aria-label="Effect name"
-        class="w-36 min-w-0 truncate rounded-md bg-transparent px-1.5 py-1 text-xs font-medium outline-none hover:bg-accent focus:bg-accent"
+        class="w-32 shrink-0 truncate rounded-md bg-transparent px-1.5 py-1 text-xs font-medium outline-none hover:bg-accent focus:bg-accent"
         value={ed.state.doc.name}
         onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
         onBlur={(e) => {
@@ -107,25 +111,15 @@ export function TopBar(props: { onSaveJson: () => void; onLoadJson: () => void }
       <Divider />
 
       {/* view */}
-      <div class="hidden h-[30px] shrink-0 items-center rounded-md border p-0.5 text-[11px] @3xl:flex" role="radiogroup" aria-label="Motion preview">
-        <For each={MOTIONS}>
-          {(m) => (
-            <button
-              type="button"
-              role="radio"
-              aria-checked={settings().motion === m.value ? "true" : "false"}
-              title={m.value === "none" ? "Effect stays at the origin" : `Move the effect along a ${m.value} (trails, inherit velocity)`}
-              class={[
-                "h-full rounded-[5px] px-2 font-medium transition-colors",
-                settings().motion === m.value ? "bg-background text-foreground shadow-sm dark:bg-input/40" : "text-muted-foreground hover:text-foreground",
-              ]}
-              onClick={() => ed.setPreview({ motion: m.value })}
-            >
-              {m.label}
-            </button>
-          )}
-        </For>
-      </div>
+      <select
+        aria-label="Motion preview"
+        title="Motion preview: move the effect along a path to see trails and inherited velocity"
+        class="h-7 shrink-0 rounded-md bg-transparent px-1 text-[11px] text-muted-foreground outline-none hover:bg-accent hover:text-foreground [&>option]:bg-popover"
+        value={settings().motion}
+        onChange={(e) => ed.setPreview({ motion: e.currentTarget.value as "none" | "circle" | "line" })}
+      >
+        <For each={MOTIONS}>{(m) => <option value={m.value}>{m.label}</option>}</For>
+      </select>
       <Tooltip content="Background" side="bottom">
         <button
           type="button"
@@ -162,6 +156,19 @@ export function TopBar(props: { onSaveJson: () => void; onLoadJson: () => void }
       <Divider />
 
       <SaveBadge />
+      <Show when={chat.available}>
+        <BarButton
+          icon={Sparkles}
+          label="AI assistant (⌘I)"
+          active={chat.state.open && !chat.state.minimized}
+          onClick={() =>
+            chat.setState((d) => {
+              d.open = !(d.open && !d.minimized);
+              d.minimized = false;
+            })
+          }
+        />
+      </Show>
       <BarButton icon={Undo2} label="Undo (⌘Z)" disabled={!ed.state.canUndo} onClick={() => ed.undo()} />
       <BarButton icon={Redo2} label="Redo (⇧⌘Z)" disabled={!ed.state.canRedo} onClick={() => ed.redo()} />
       <BarButton icon={Ellipsis} label="More" active={!!menu()} onClick={(e) => togglePopover(menu(), setMenu, e)} />
@@ -188,6 +195,11 @@ export function TopBar(props: { onSaveJson: () => void; onLoadJson: () => void }
           </MenuItem>
         </Show>
         <MenuSeparator />
+        <Show when={effectMcpUrl(host)}>
+          <MenuItem icon={Plug} onSelect={() => (setMenu(null), ui.openDialog("mcp"))}>
+            Connect agent (MCP)
+          </MenuItem>
+        </Show>
         <MenuItem icon={Keyboard} onSelect={() => (setMenu(null), ui.openDialog("shortcuts"))}>
           Keyboard shortcuts
         </MenuItem>

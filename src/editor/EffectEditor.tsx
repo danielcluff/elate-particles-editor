@@ -2,11 +2,15 @@ import { Show, createRenderEffect, createSignal, onSettled, snapshot, untrack, u
 import { normalizeEffect, type EffectDoc } from "elate-particles";
 import type { EffectHost } from "../host";
 import { rootClass, setTheme, type Theme } from "../ui/theme";
+import { AIChat } from "./AIChat";
+import { ChatContext, createChat } from "./ai-chat";
+import { connectBridge } from "./bridge-client";
 import { Dialogs, Toasts } from "./Dialogs";
 import { EmitterList } from "./EmitterList";
 import { HostContext } from "./host";
 import { PlaybackContext, createPlayback } from "./playback";
 import { installShortcuts } from "./shortcuts";
+import { ShadersContext, createShaders } from "./shaders";
 import { StackPanel } from "./Stack";
 import { EditorContext, createEditor } from "./store";
 import { Timeline } from "./Timeline";
@@ -70,11 +74,20 @@ function EditorShell(props: { doc: EffectDoc; persist: boolean }) {
   const host = useContext(HostContext);
   const ed = createEditor(untrack(() => props.doc), { save: untrack(() => props.persist) ? (doc) => host.projects.save(doc) : undefined });
   const pb = createPlayback();
+  const chat = createChat(ed, host);
+  const shaders = createShaders(host);
+  void shaders.refreshList();
   let freeArea: HTMLDivElement | undefined;
-  if (import.meta.env?.DEV) (window as unknown as { __elate: unknown }).__elate = { ed, pb, ui };
+  if (import.meta.env?.DEV) (window as unknown as { __elate: unknown }).__elate = { ed, pb, ui, chat };
 
   onSettled(() => {
-    const offKeys = installShortcuts(ed, pb);
+    const offKeys = installShortcuts(ed, pb, () =>
+      chat.setState((d) => {
+        d.open = !(d.open && !d.minimized);
+        d.minimized = false;
+      }),
+    );
+    const offBridge = untrack(() => props.persist) ? connectBridge(ed, pb, host) : () => {};
     const beforeUnload = (e: BeforeUnloadEvent) => {
       if (ed.state.saveState === "unsaved" || ed.state.saveState === "saving") {
         void ed.save();
@@ -99,6 +112,7 @@ function EditorShell(props: { doc: EffectDoc; persist: boolean }) {
 
     return () => {
       offKeys();
+      offBridge();
       clearInterval(thumbTimer);
       window.removeEventListener("beforeunload", beforeUnload);
       // disposal runs inside an owned scope: no reactive writes here
@@ -135,6 +149,8 @@ function EditorShell(props: { doc: EffectDoc; persist: boolean }) {
   return (
     <EditorContext value={ed}>
       <PlaybackContext value={pb}>
+      <ChatContext value={chat}>
+      <ShadersContext value={shaders}>
         {/* like tsl-graph: the viewport fills the window and the panels float over it */}
         <div class="absolute inset-0 overflow-hidden">
           <Viewport freeArea={() => freeArea} />
@@ -147,7 +163,9 @@ function EditorShell(props: { doc: EffectDoc; persist: boolean }) {
                 <TopBar onSaveJson={saveJson} onLoadJson={loadJson} />
               </div>
               {/* the free area between the panels: the camera centres on it */}
-              <div ref={freeArea} class="min-h-0 flex-1" />
+              <div ref={freeArea} class="relative min-h-0 flex-1">
+                <AIChat />
+              </div>
               <div class="flex flex-col gap-1.5">
                 <div class="px-1">
                   <StatsOverlay />
@@ -162,6 +180,8 @@ function EditorShell(props: { doc: EffectDoc; persist: boolean }) {
         </div>
         <Dialogs />
         <Toasts />
+      </ShadersContext>
+      </ChatContext>
       </PlaybackContext>
     </EditorContext>
   );

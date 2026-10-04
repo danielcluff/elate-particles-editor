@@ -1,5 +1,5 @@
 import { createContext, createMemo, createSignal, flush, reconcile, snapshot, createStore } from "solid-js";
-import { executeCommand, validateEffect, type Command, type EffectDoc, type Issue, type PreviewSettings } from "elate-particles";
+import { executeCommand, isReadOnly, validateEffect, type Command, type EffectDoc, type Issue, type PreviewSettings } from "elate-particles";
 import { ui } from "./ui-state";
 
 // The editor's state. The effect document lives in a store; every edit is a
@@ -20,6 +20,8 @@ export interface RunOptions {
   history?: boolean;
   /** Report errors as a toast (default true). */
   toast?: boolean;
+  /** Rethrow errors instead (agent calls through the bridge). */
+  throw?: boolean;
 }
 
 export type SaveState = "saved" | "unsaved" | "saving" | "error";
@@ -105,6 +107,16 @@ export function createEditor(initial: EffectDoc, opts: { save?: (doc: EffectDoc)
     restore(entry);
   }
 
+  /** Current undo depth; `undoTo(mark)` reverts everything done since (an AI reply's changes). */
+  const historyMark = () => past.length;
+  function undoTo(mark: number) {
+    if (past.length <= mark) return;
+    const target = past[mark];
+    future.push(serialize());
+    past = past.slice(0, mark);
+    restore(target);
+  }
+
   /** Ends the current merged edit (see RunOptions.merge). */
   function commit() {
     mergeKey = null;
@@ -165,9 +177,11 @@ export function createEditor(initial: EffectDoc, opts: { save?: (doc: EffectDoc)
     try {
       result = executeCommand(draft, cmd);
     } catch (err) {
+      if (o.throw) throw err;
       if (o.toast !== false) ui.toast(err instanceof Error ? err.message : String(err), "error");
       return undefined;
     }
+    if (isReadOnly(cmd)) return result as T;
     if (o.history !== false && !(o.merge && o.merge === mergeKey)) pushHistory(before);
     mergeKey = o.merge ?? null;
     apply(draft);
@@ -187,12 +201,19 @@ export function createEditor(initial: EffectDoc, opts: { save?: (doc: EffectDoc)
     scheduleSave();
   }
 
-  /** Replaces the whole document (load from JSON), as one undo step. */
-  function replaceDoc(doc: EffectDoc) {
+  /**
+   * Replaces the whole document (load from JSON, or a reload after the file
+   * changed on disk) as one undo step. `save: false` when it came from storage.
+   */
+  function replaceDoc(doc: EffectDoc, o: { save?: boolean } = {}) {
     pushHistory();
     mergeKey = null;
     // a loaded file keeps this effect's id, so saving overwrites this effect
     apply({ ...structuredClone(doc), id: state.doc.id });
+    if (o.save === false) {
+      clearTimeout(saveTimer);
+      setState((s) => void (s.saveState = "saved"));
+    }
   }
 
   function select(emitterId: string | null) {
@@ -221,6 +242,8 @@ export function createEditor(initial: EffectDoc, opts: { save?: (doc: EffectDoc)
     commit,
     undo,
     redo,
+    historyMark,
+    undoTo,
     save,
     setPreview,
     setThumbnail,

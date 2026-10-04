@@ -9,6 +9,7 @@ export const SHORTCUTS: { keys: string; label: string }[] = [
   { keys: "⌘Z", label: "Undo" },
   { keys: "⇧⌘Z / ⌘Y", label: "Redo" },
   { keys: "⌘S", label: "Save now" },
+  { keys: "⌘I", label: "AI assistant" },
   { keys: "Drag a value's label", label: "Scrub it (Shift: ×10)" },
   { keys: "Double-click a curve", label: "Add a key" },
 ];
@@ -18,7 +19,7 @@ const typing = (t: EventTarget | null) => {
   return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable);
 };
 
-export function installShortcuts(ed: Editor, pb: Playback): () => void {
+export function installShortcuts(ed: Editor, pb: Playback, toggleChat: () => void): () => void {
   const onKey = (e: KeyboardEvent) => {
     const mod = e.metaKey || e.ctrlKey;
     if (mod && e.key.toLowerCase() === "z") {
@@ -32,6 +33,11 @@ export function installShortcuts(ed: Editor, pb: Playback): () => void {
       if (typing(e.target)) return;
       e.preventDefault();
       ed.redo();
+      return;
+    }
+    if (mod && e.key.toLowerCase() === "i") {
+      e.preventDefault();
+      toggleChat();
       return;
     }
     if (mod && e.key.toLowerCase() === "s") {

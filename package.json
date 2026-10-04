@@ -1,7 +1,7 @@
 {
   "name": "elate-particles-editor",
   "version": "0.1.0",
-  "description": "Effect editor for elate-particles: a module-stack particle tool with a live WebGPU viewport, timeline and curve/gradient editors, embeddable in a host app.",
+  "description": "Effect editor for elate-particles: a module-stack particle tool with a live WebGPU viewport, timeline and curve/gradient editors, plus an MCP server, embeddable in a host app.",
   "type": "module",
   "license": "GPL-3.0-or-later",
   "exports": {
@@ -13,7 +13,8 @@
     "./editor.css": "./src/editor.css"
   },
   "files": [
-    "src"
+    "src",
+    "scripts/mcp-stdio.mjs"
   ],
   "scripts": {
     "dev": "tsx playground/server.ts",
@@ -22,10 +23,16 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.129.0",
     "@fontsource-variable/geist": "^5.3.0",
     "@fontsource-variable/geist-mono": "^5.3.0",
+    "@google/genai": "^2.27.0",
+    "@modelcontextprotocol/sdk": "^1.32.0",
     "elate-particles": "workspace:*",
-    "lucide-static": "^1.48.0"
+    "lucide-static": "^1.48.0",
+    "openai": "^7.27.0",
+    "ws": "^8.22.0",
+    "zod": "^4.6.5"
   },
   "peerDependencies": {
     "@solidjs/web": "2.0.0-rc.11",
@@ -38,12 +45,17 @@
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^26.6.3",
     "@types/three": "^0.186.0",
+    "@types/ws": "^8.18.2",
     "solid-js": "2.0.0-rc.11",
     "tailwindcss": "^4.3.3",
     "three": "^0.186.1",
+    "tsl-graph": "link:../tsl-graph",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vite": "^8.3.1",
     "vitest": "^5.0.2"
+  },
+  "bin": {
+    "elate-particles-mcp": "./scripts/mcp-stdio.mjs"
   }
 }

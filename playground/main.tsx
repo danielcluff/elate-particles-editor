@@ -3,7 +3,9 @@
 import { For, Show, createSignal } from "solid-js";
 import { render } from "@solidjs/web";
 import { createEffect as createEffectDoc, normalizeEffect, type EffectDoc } from "elate-particles";
-import { EffectEditor, type EffectHost, type EffectSummary } from "../src/editor";
+import type { ProjectDoc } from "tsl-graph";
+import { createParticleShader } from "tsl-graph/particle";
+import { EffectEditor, type EffectHost, type EffectSummary, type ProviderId, type ShaderSummary } from "../src/editor";
 import "./styles.css";
 
 async function req<T>(method: string, url: string, body?: unknown): Promise<T> {
@@ -42,11 +44,33 @@ window.addEventListener("hashchange", () => setRoute(location.hash));
 const go = (hash: string) => (location.hash = hash);
 const effectId = () => /^#\/e\/([\w-]+)/.exec(route())?.[1];
 
+// Keys typed on the effects page; a real host would fetch them from its own
+// account system or keep them server-side (createEffectServer's ai.getApiKey).
+const PROVIDERS: ProviderId[] = ["anthropic", "openai", "google"];
+const keyName = (p: ProviderId) => `playground-ai-key-${p}`;
+
+// tsl-graph's playground (`pnpm dev` in ../tsl-graph)
+const TSL_GRAPH_URL = import.meta.env.VITE_TSL_GRAPH_URL ?? "http://localhost:5173";
+
 const host: EffectHost = {
   projects: effects,
   openProject: (id) => go(`#/e/${id}`),
   exit: () => go("#/"),
   projectUrl: (id) => `${location.origin}/#/e/${id}`,
+  server: { url: "/elate" },
+  // particle shaders: tsl-graph projects, edited in tsl-graph's playground
+  shaders: {
+    list: () => req<ShaderSummary[]>("GET", "/api/shaders"),
+    async load(id) {
+      const { shader, diagnostics } = createParticleShader(await req<ProjectDoc>("GET", `/api/shaders/${id}`), (msg) => console.warn(msg));
+      const errors = diagnostics.filter((d) => d.level === "error");
+      if (errors.length) throw new Error(errors.map((d) => d.message).join("; "));
+      return shader;
+    },
+    editUrl: (id) => `${TSL_GRAPH_URL}/#/p/${id}`,
+    create: async (name) => (await req<{ id: string }>("POST", "/api/shaders", { name })).id,
+  },
+  ai: { getApiKey: (p) => sessionStorage.getItem(keyName(p)) },
 };
 
 function App() {
@@ -139,6 +163,29 @@ function EffectList() {
               </For>
             </div>
           </Show>
+        </section>
+
+        <section class="space-y-2">
+          <h2 class="text-sm font-semibold">AI keys (passed to the editor by this host)</h2>
+          <p class="text-xs text-muted-foreground">Kept in this tab's sessionStorage. Leave empty to use the server's env vars (ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY).</p>
+          <For each={PROVIDERS}>
+            {(p) => (
+              <label class="flex items-center gap-2 text-sm">
+                <span class="w-24 capitalize">{p}</span>
+                <input
+                  type="password"
+                  autocomplete="off"
+                  class="h-8 flex-1 rounded-md border bg-transparent px-2"
+                  value={sessionStorage.getItem(keyName(p)) ?? ""}
+                  onChange={(e) => {
+                    const v = e.currentTarget.value.trim();
+                    if (v) sessionStorage.setItem(keyName(p), v);
+                    else sessionStorage.removeItem(keyName(p));
+                  }}
+                />
+              </label>
+            )}
+          </For>
         </section>
       </div>
     </div>
