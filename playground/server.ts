@@ -5,7 +5,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { extname, join, resolve } from "node:path";
 import type { EffectDoc } from "elate-particles";
-import { createProject, type ProjectDoc } from "tsl-graph";
+import { createProject, normalizeDoc, type ProjectDoc } from "tsl-graph";
 import { createEffectServer, createFileStore } from "../src/server";
 
 const PORT = Number(process.env.PORT ?? 5190);
@@ -15,7 +15,7 @@ const ROOT = resolve(import.meta.dirname, "..");
 
 const store = createFileStore(join(process.env.ELATE_DATA_DIR ?? join(ROOT, "data"), "effects"));
 
-// Particle shaders are tsl-graph projects of kind "particle". The playground
+// Particle shaders are tsl-graph projects with target "particle". The playground
 // reads tsl-graph's own playground store (run `pnpm dev` in ../tsl-graph to
 // edit them); a real host would share one asset store between both tools.
 const TSL_GRAPH_DIR = resolve(process.env.TSL_GRAPH_DIR ?? join(ROOT, "..", "tsl-graph"));
@@ -31,8 +31,8 @@ async function readShaders(): Promise<ProjectDoc[]> {
   }
   for (const f of files) {
     try {
-      const doc = JSON.parse(await readFile(join(SHADER_DIR, f), "utf8")) as ProjectDoc;
-      if (doc.kind === "particle") out.push(doc);
+      const doc = normalizeDoc(JSON.parse(await readFile(join(SHADER_DIR, f), "utf8")) as ProjectDoc);
+      if (doc.target === "particle") out.push(doc);
     } catch {
       // skip unreadable files
     }
