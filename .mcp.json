@@ -2,7 +2,7 @@
   "mcpServers": {
     "elate-particles": {
       "type": "http",
-      "url": "http://localhost:5190/elate/mcp"
+      "url": "http://localhost:5120/elate/mcp"
     }
   }
 }

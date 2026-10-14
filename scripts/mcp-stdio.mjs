@@ -5,7 +5,7 @@
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
-const url = new URL(process.env.ELATE_MCP_URL ?? `http://localhost:${process.env.PORT ?? 5190}/elate/mcp`);
+const url = new URL(process.env.ELATE_MCP_URL ?? `http://localhost:${process.env.PORT ?? 5120}/elate/mcp`);
 
 const stdio = new StdioServerTransport();
 const http = new StreamableHTTPClientTransport(url);

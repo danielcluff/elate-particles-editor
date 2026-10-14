@@ -8,7 +8,7 @@ import type { EffectDoc } from "elate-particles";
 import { createProject, normalizeDoc, type ProjectDoc } from "tsl-graph";
 import { createEffectServer, createFileStore } from "../src/server";
 
-const PORT = Number(process.env.PORT ?? 5190);
+const PORT = Number(process.env.PORT ?? 5120);
 const HOST = process.env.HOST ?? "127.0.0.1";
 const PROD = process.env.NODE_ENV === "production";
 const ROOT = resolve(import.meta.dirname, "..");

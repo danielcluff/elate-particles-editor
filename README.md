@@ -12,10 +12,10 @@ builds against the exact runtime commit it was tested with.
 ```bash
 git clone --recurse-submodules https://github.com/danielcluff/elate-particles-editor.git
 pnpm install
-pnpm dev            # playground at http://localhost:5190, MCP at http://localhost:5190/elate/mcp
+pnpm dev            # playground at http://localhost:5120, MCP at http://localhost:5120/elate/mcp
 ```
 
-For particle shaders, also run tsl-graph's playground next to it (`pnpm dev` in `../tsl-graph`, port 5173): the editor
+For particle shaders, also run tsl-graph's playground next to it (`pnpm dev` in `../tsl-graph`, port 5130): the editor
 playground lists its `kind: "particle"` projects and links to it for editing.
 
 (In an existing clone: `git submodule update --init`.)

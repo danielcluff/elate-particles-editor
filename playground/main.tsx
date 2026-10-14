@@ -50,7 +50,7 @@ const PROVIDERS: ProviderId[] = ["anthropic", "openai", "google"];
 const keyName = (p: ProviderId) => `playground-ai-key-${p}`;
 
 // tsl-graph's playground (`pnpm dev` in ../tsl-graph)
-const TSL_GRAPH_URL = import.meta.env.VITE_TSL_GRAPH_URL ?? "http://localhost:5173";
+const TSL_GRAPH_URL = import.meta.env.VITE_TSL_GRAPH_URL ?? "http://localhost:5130";
 
 const host: EffectHost = {
   projects: effects,
