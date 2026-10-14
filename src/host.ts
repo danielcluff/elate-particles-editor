@@ -10,6 +10,7 @@
 
 import type { EffectDoc } from "elate-particles";
 import type { ParticleShader } from "elate-particles/three";
+import type { PostStore } from "./post/settings";
 
 export type ProviderId = "anthropic" | "openai" | "google";
 export type McpMode = "graph" | "parent";
@@ -102,6 +103,12 @@ export interface EffectHost {
   ai?: {
     getApiKey?(provider: ProviderId): string | undefined | null | Promise<string | undefined | null>;
   };
+  /**
+   * Preview post-processing settings (see "elate-particles-editor/post"). Pass a
+   * store shared with the host's other previews for one look everywhere. Omit
+   * to use the editor's own store, remembered per browser.
+   */
+  post?: PostStore;
 }
 
 // ---------------------------------------------------------------------------

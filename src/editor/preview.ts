@@ -10,6 +10,8 @@ import * as THREE from "three/webgpu";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { EffectDoc, PreviewSettings } from "elate-particles";
 import { ParticleWorld, type ParticleEffect, type ParticleShader, type ParticleWorldStats } from "elate-particles/three";
+import { PreviewPost } from "../post/pipeline";
+import type { PostStore } from "../post/settings";
 
 export const BACKGROUNDS: { label: string; value: string }[] = [
   { label: "Night", value: "#05070c" },
@@ -51,6 +53,8 @@ export class EffectPreview {
   readonly camera = new THREE.PerspectiveCamera(50, 1, 0.05, 1000);
   readonly controls: OrbitControls;
   readonly world: ParticleWorld;
+  /** Post-processing (bloom, grade, tone map), following the store passed in. */
+  readonly post: PreviewPost | null;
   readonly ready: Promise<void>;
   backend = "";
 
@@ -78,7 +82,7 @@ export class EffectPreview {
   #disposed = false;
   #lineLap = 0;
 
-  constructor(container: HTMLElement, opts: { shaders?: (id: string) => ParticleShader | undefined } = {}) {
+  constructor(container: HTMLElement, opts: { shaders?: (id: string) => ParticleShader | undefined; post?: PostStore } = {}) {
     this.#container = container;
     this.renderer = new THREE.WebGPURenderer({ antialias: true });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -111,6 +115,7 @@ export class EffectPreview {
 
     this.world = new ParticleWorld({ renderer: this.renderer, lights: { max: 8 }, silent: true, shaders: opts.shaders });
     this.scene.add(this.world.object);
+    this.post = opts.post ? new PreviewPost(this.renderer, this.scene, this.camera, opts.post) : null;
 
     this.#resize = new ResizeObserver(() => this.#applySize());
     this.#resize.observe(container);
@@ -281,6 +286,7 @@ export class EffectPreview {
     this.controls.dispose();
     this.#handle?.release();
     this.world.dispose();
+    this.post?.dispose();
     this.renderer.dispose();
     this.renderer.domElement.remove();
   }
@@ -411,7 +417,8 @@ export class EffectPreview {
         else if (this.#finishedFor >= REPLAY_GAP) this.#seekTo(0);
       } else this.#advance(dt * this.#timeScale);
     }
-    this.renderer.render(this.scene, this.camera);
+    if (this.post?.enabled) this.post.render();
+    else this.renderer.render(this.scene, this.camera);
     this.onFrame?.({
       time: this.#time,
       playing: this.#playing,

@@ -2,3 +2,4 @@
 // "elate-particles-editor/editor" (browser), storage helpers are
 // "elate-particles-editor/server" (Node).
 export type { EffectHost, EffectSource, EffectStore, EffectSummary, McpMode, ProviderId, ShaderSource, ShaderSummary } from "./host";
+export type { PostSettings, PostStore } from "./post/settings";

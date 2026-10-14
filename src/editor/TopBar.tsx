@@ -1,5 +1,6 @@
 import { For, Show, createSignal, useContext } from "solid-js";
 import {
+  Aperture,
   Check,
   Download,
   Ellipsis,
@@ -24,6 +25,8 @@ import { ChatContext } from "./ai-chat";
 import { HostContext, effectMcpUrl } from "./host";
 import { PlaybackContext } from "./playback";
 import { BACKGROUNDS, DEFAULT_PREVIEW } from "./preview";
+import { PostControls } from "../post/PostControls";
+import { defaultPostStore } from "../post/settings";
 import { EditorContext } from "./store";
 import { ui } from "./ui-state";
 
@@ -72,6 +75,8 @@ export function TopBar(props: { onSaveJson: () => void; onLoadJson: () => void }
   const chat = useContext(ChatContext);
   const [menu, setMenu] = createSignal<PopoverAnchor | null>(null);
   const [bgMenu, setBgMenu] = createSignal<PopoverAnchor | null>(null);
+  const [postMenu, setPostMenu] = createSignal<PopoverAnchor | null>(null);
+  const postStore = () => host?.post ?? defaultPostStore();
   const settings = () => ({ ...DEFAULT_PREVIEW, ...ed.state.doc.preview });
 
   return (
@@ -152,6 +157,10 @@ export function TopBar(props: { onSaveJson: () => void; onLoadJson: () => void }
         </For>
       </Popover>
       <BarButton icon={Grid3x3} label="Ground and grid" active={settings().showGrid} onClick={() => ed.setPreview({ showGrid: !settings().showGrid })} />
+      <BarButton icon={Aperture} label="Post-processing" active={postStore().settings().enabled} onClick={(e) => togglePopover(postMenu(), setPostMenu, e)} />
+      <Popover open={!!postMenu()} anchor={postMenu()?.rect} trigger={postMenu()?.el} align="end" onClose={() => setPostMenu(null)} class="w-64 p-0">
+        <PostControls store={postStore()} note={host?.post ? "Shared with the host's other previews." : "Preview only; remembered in this browser."} />
+      </Popover>
       <BarButton icon={Scan} label="Frame effect (F)" onClick={() => pb.frame()} />
       <Divider />
 

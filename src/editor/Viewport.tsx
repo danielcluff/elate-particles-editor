@@ -1,4 +1,6 @@
 import { Show, createEffect, onSettled, untrack, useContext } from "solid-js";
+import { defaultPostStore } from "../post/settings";
+import { HostContext } from "./host";
 import { EffectPreview } from "./preview";
 import { PlaybackContext } from "./playback";
 import { ShadersContext } from "./shaders";
@@ -15,6 +17,7 @@ export function Viewport(props: { freeArea: () => HTMLElement | undefined }) {
   const ed = useContext(EditorContext);
   const pb = useContext(PlaybackContext);
   const shaders = useContext(ShadersContext);
+  const effectHost = useContext(HostContext);
   let host!: HTMLDivElement;
   let preview: EffectPreview | undefined;
   let applyTimer: number | undefined;
@@ -33,7 +36,7 @@ export function Viewport(props: { freeArea: () => HTMLElement | undefined }) {
 
   onSettled(() => {
     pb.setApply(apply);
-    preview = new EffectPreview(host, { shaders: shaders.resolve });
+    preview = new EffectPreview(host, { shaders: shaders.resolve, post: effectHost?.post ?? defaultPostStore() });
     shaders.setOnChange((id) => preview?.refreshShader(id));
     // coming back from the shader editor: pick up edited shaders
     const onFocus = () => void shaders.checkForEdits();

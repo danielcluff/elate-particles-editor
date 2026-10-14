@@ -30,6 +30,7 @@ playground lists its `kind: "particle"` projects and links to it for editing.
 | **Renderers, sub-emitters** | Several renderers per emitter (sprite, mesh, ribbon, light) with every option; sub-emitter bindings |
 | **Value widgets** | `FloatValue`: constant · random between · curve · random between curves · parameter. `ColorValue`: colour · random between · gradient · random from gradient, with alpha and HDR intensity. Curve editor (drag, double-click to add, right-click to remove, presets) and a Unity-style gradient editor |
 | **Viewport** | Full-bleed behind the panels, centred on the space between them. Play / pause / step / restart, speed, replay of one-shots, motion preview (circle, line), backgrounds, ground and grid, frame, stats |
+| **Post-processing** | Top-bar aperture button: on/off, tone map (ACES, AgX, Khronos neutral, Reinhard, none), exposure, bloom (strength, radius, threshold) and a linear-HDR grade (white balance, saturation, contrast, painted luminance bands, vignette). On by default with bloom for emissive sprites; remembered per browser, or shared through `EffectHost.post` |
 | **Timeline** | One row per emitter: start delay, duration, loop repeats, burst ticks, sub-emitter links. Drag a bar to move it, its right edge to resize. Drag the ruler to scrub |
 | **Store** | Every edit is a runtime `Command` through `executeCommand`, the same API the MCP tools and the AI chat use. Undo and redo per command; drags and typing merge into one step. Autosave through the host, thumbnails for the host's list |
 | **Materials** | Sprite renderers can use a particle shader graph (`material: { kind: "graph", shaderId }`) from the host's `ShaderSource`: picker with thumbnail, "Edit in shader graph", and edited shaders reload when the editor regains focus |
@@ -77,6 +78,22 @@ const fx = createEffectServer({ store: createFileStore("data/effects"), basePath
 server.on("request", async (req, res) => { if (await fx.handle(req, res)) return; /* …your app… */ });
 fx.attach(server); // editor-tab WebSocket bridge
 ```
+
+### Post-processing
+
+`elate-particles-editor/post` exports the preview's stack (`PreviewPost`), a settings store (`createPostStore(key,
+defaults?)`, remembered in localStorage) and its controls (`PostControls`). Pass a store as `EffectHost.post` to
+share one look with the host's other viewports; omit it and the editor keeps its own. Hosts can reuse the stack in
+their own viewports:
+
+```ts
+import { PreviewPost, PostControls, createPostStore } from "elate-particles-editor/post";
+const look = createPostStore("my-app-preview-post");
+const post = new PreviewPost(renderer, scene, camera, look); // follows the store
+// each frame: post.enabled ? post.render() : renderer.render(scene, camera)
+```
+
+The grade runs before the tone map; `post.setIlluminant(rgb)` gives white balance the scene's light colour.
 
 `createFileStore(dir)` keeps one `<id>.fx.json` per effect. `mcp: "parent"` and `registerMcpTools(server, { prefix })`
 let a host's own MCP server carry the tools; `scripts/mcp-stdio.mjs` (`elate-particles-mcp`) proxies stdio-only
